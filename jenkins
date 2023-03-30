@@ -1,51 +1,37 @@
-pipeline {
-    agent any
-     tools {
-        maven 'Maven' 
-        }
-    stages {
-        stage("Test"){
-            steps{
-                // mvn test
-                sh "mvn test"
-                
-                
-            }
-            
-        }
-        stage("Build"){
-            steps{
-                sh "mvn package"
-                
-            }
-            
-        }
+@echo off
 
-        stage("Deploy on Prod"){
-             input {
-                message "Should we continue?"
-                ok "Yes we Should"
-            }
-            
-            steps{
-                // deploy on container -> plugin
-                deploy adapters: [tomcat9(credentialsId: 'Jenkins_file', path: '', url: 'http://3.110.115.33:8080')], contextPath: '/app', war: '**/*.war'
-                
+rem Set up the environment
+set MAVEN_HOME=C:\Program Files\Maven
+set PATH=%PATH%;%MAVEN_HOME%\bin
 
-            }
-        }
-    }
-    post{
-        always{
-            echo "========always========"
-        }
-        success{
-            echo "========pipeline executed successfully ========"
-             slackSend channel: 'youtubejenkins', message: 'Success'
-        }
-        failure{
-            echo "========pipeline execution failed========"
-             slackSend channel: 'youtubejenkins', message: 'Job Failed'
-        }
-    }
-}
+rem Test stage
+echo Running test stage...
+mvn test
+
+rem Build stage
+echo Running build stage...
+mvn package
+
+rem Deploy on Prod stage
+echo Running deploy on Prod stage...
+set /p confirm="Should we continue? (Y/N) "
+if /i "%confirm%" neq "Y" goto deploy_failed
+
+rem Deploy the application using the Tomcat 9 adapter
+mvn tomcat9:deploy -Durl=http://3.110.115.33:8080 -Dpath=/app -Dwar=**/*.war -Dtomcat9.username=Jenkins_file -Dtomcat9.password=********
+
+goto pipeline_success
+
+:deploy_failed
+echo Deployment cancelled.
+goto pipeline_failed
+
+:pipeline_success
+echo Pipeline executed successfully.
+goto end
+
+:pipeline_failed
+echo Pipeline execution failed.
+goto end
+
+:end
